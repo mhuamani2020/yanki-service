@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: yanki-service
+  config:
+    import: "optional:configserver:http://localhost:8888"
+  # ========================================================================
+  # Kafka (Parte III) — arquitectura orientada a eventos
+  # Yanki publica comandos de operación de monedero y consume sus resultados.
+  # Es su único canal de comunicación con bank-account-service (nunca por REST).
+  # ========================================================================
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      group-id: yanki-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+# Propiedades externalizadas (Parte I: "No deben tener configuraciones en el código")
+app:
+  kafka:
+    # Parte III: arquitectura orientada a eventos con Kafka como message broker.
+    topics:
+      wallet-operations: wallet-operations
+      wallet-operation-results: wallet-operation-results
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true

@@ -1,0 +1,255 @@
+openapi: 3.0.3
+info:
+  title: Yanki Service API
+  version: 1.0.0
+  description: >-
+    API del monedero móvil Yanki (Parte III). Permite registrar monederos sin ser
+    cliente del banco, enviar y recibir pagos entre monederos por número de celular,
+    y cargar (top-up) o acreditar (withdraw) saldo contra la cuenta principal asociada
+    a una tarjeta de débito del banco. La comunicación con bank-account-service se
+    realiza exclusivamente por Kafka, nunca por REST.
+paths:
+  /wallets:
+    get:
+      summary: Obtener todos los monederos
+      operationId: findAllWallets
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WalletResponse'
+    post:
+      summary: Registrar un monedero (no requiere ser cliente del banco)
+      operationId: createWallet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WalletRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletResponse'
+  /wallets/{id}:
+    get:
+      summary: Obtener un monedero por su ID
+      operationId: findWalletById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletResponse'
+  /wallets/by-cellphone/{cellphone}:
+    get:
+      summary: Obtener un monedero por su número de celular
+      operationId: findWalletByCellphone
+      parameters:
+        - name: cellphone
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletResponse'
+  /wallets/{id}/debit-card:
+    post:
+      summary: Asociar una tarjeta de débito del banco al monedero
+      operationId: associateDebitCard
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssociateDebitCardRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletResponse'
+  /wallets/{id}/payments:
+    post:
+      summary: Enviar un pago a otro monedero usando solo su número de celular
+      operationId: transferBetweenWallets
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WalletTransferRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletResponse'
+  /wallets/{id}/top-up:
+    post:
+      summary: Cargar saldo al monedero debitando la cuenta de la tarjeta asociada
+      operationId: topUpWallet
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WalletAmountRequest'
+      responses:
+        '202':
+          description: Operación aceptada; el resultado llega de forma asíncrona por Kafka
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletOperationResponse'
+  /wallets/{id}/withdraw:
+    post:
+      summary: Acreditar el saldo del monedero a la cuenta de la tarjeta asociada
+      operationId: withdrawFromWallet
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WalletAmountRequest'
+      responses:
+        '202':
+          description: Operación aceptada; el resultado llega de forma asíncrona por Kafka
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletOperationResponse'
+components:
+  schemas:
+    WalletRequest:
+      type: object
+      required:
+        - documentNumber
+        - cellphone
+        - imei
+        - email
+      properties:
+        documentNumber:
+          type: string
+          description: "Número de documento de identificación (DNI, CEX o Pasaporte)."
+        cellphone:
+          type: string
+          description: "Número de celular que identifica al monedero para enviar/recibir pagos."
+        imei:
+          type: string
+          description: "IMEI del celular del usuario."
+        email:
+          type: string
+          description: "Correo electrónico del usuario."
+    WalletResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        documentNumber:
+          type: string
+        cellphone:
+          type: string
+        imei:
+          type: string
+        email:
+          type: string
+        balance:
+          type: number
+          format: double
+          description: "Saldo disponible del monedero."
+        debitCardId:
+          type: string
+          description: "Tarjeta de débito asociada al monedero (opcional)."
+    AssociateDebitCardRequest:
+      type: object
+      required:
+        - debitCardId
+      properties:
+        debitCardId:
+          type: string
+          description: "Identificador de la tarjeta de débito del banco."
+    WalletTransferRequest:
+      type: object
+      required:
+        - targetCellphone
+        - amount
+      properties:
+        targetCellphone:
+          type: string
+          description: "Número de celular del monedero destino."
+        amount:
+          type: number
+          format: double
+          description: "Importe a transferir; debe ser mayor que cero."
+    WalletAmountRequest:
+      type: object
+      required:
+        - amount
+      properties:
+        amount:
+          type: number
+          format: double
+          description: "Importe de la operación; debe ser mayor que cero."
+    WalletOperationResponse:
+      type: object
+      description: "Estado de una operación de monedero gestionada de forma asíncrona por Kafka."
+      properties:
+        operationId:
+          type: string
+        walletId:
+          type: string
+        operationType:
+          type: string
+          description: "TOP_UP (cargar saldo) o WITHDRAW (acreditar saldo)."
+        amount:
+          type: number
+          format: double
+        status:
+          type: string
+          description: "PENDING, COMPLETED o FAILED."
