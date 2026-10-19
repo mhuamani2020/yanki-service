@@ -55,6 +55,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WalletResponse'
+    put:
+      summary: Actualizar los datos maestros de un monedero
+      description: >-
+        Actualiza documento, celular, IMEI y correo. El saldo y la tarjeta de débito
+        asociada no se modifican por esta vía.
+      operationId: updateWallet
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WalletRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletResponse'
+        '404':
+          description: El monedero no existe
+    delete:
+      summary: Eliminar un monedero
+      operationId: deleteWallet
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Monedero eliminado
+        '404':
+          description: El monedero no existe
   /wallets/by-cellphone/{cellphone}:
     get:
       summary: Obtener un monedero por su número de celular

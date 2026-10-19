@@ -53,6 +53,24 @@ public interface WalletService {
     Single<WalletResponse> create(WalletRequest request);
 
     /**
+     * Actualiza los datos maestros de un monedero existente. El saldo y la tarjeta de
+     * débito asociada no se modifican por esta vía.
+     *
+     * @param id      identificador del monedero
+     * @param request nuevos datos del monedero
+     * @return maybe con el monedero actualizado; vacío si no existe
+     */
+    Maybe<WalletResponse> update(String id, WalletRequest request);
+
+    /**
+     * Elimina un monedero por su identificador.
+     *
+     * @param id identificador del monedero
+     * @return single con {@code true} si se eliminó; {@code false} si no existía
+     */
+    Single<Boolean> delete(String id);
+
+    /**
      * Asocia una tarjeta de débito del banco al monedero.
      *
      * @param id      identificador del monedero

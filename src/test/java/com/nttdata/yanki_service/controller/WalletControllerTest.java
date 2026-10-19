@@ -79,6 +79,75 @@ class WalletControllerTest {
     }
 
     @Test
+    @DisplayName("PUT /wallets/{id}: Retorna 200 con el monedero actualizado")
+    void updateWallet_shouldReturnUpdated() {
+        WalletResponse response = new WalletResponse();
+        response.setId("w-1");
+        response.setEmail("new@mail.com");
+        when(walletService.update(eq("w-1"), any())).thenReturn(Maybe.just(response));
+
+        webTestClient.put()
+                .uri("/wallets/w-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"documentNumber\":\"123\",\"cellphone\":\"999888777\","
+                        + "\"imei\":\"IMEI-1\",\"email\":\"new@mail.com\"}")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.email").isEqualTo("new@mail.com");
+    }
+
+    @Test
+    @DisplayName("PUT /wallets/{id}: Retorna 404 si no existe")
+    void updateWallet_whenMissing_shouldReturnNotFound() {
+        when(walletService.update(eq("nope"), any())).thenReturn(Maybe.empty());
+
+        webTestClient.put()
+                .uri("/wallets/nope")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"documentNumber\":\"123\",\"cellphone\":\"999888777\","
+                        + "\"imei\":\"IMEI-1\",\"email\":\"u@mail.com\"}")
+                .exchange()
+                .expectStatus().isNotFound();
+    }
+
+    @Test
+    @DisplayName("PUT /wallets/{id}: Retorna 400 si los datos son inválidos")
+    void updateWallet_whenInvalid_shouldReturnBadRequest() {
+        when(walletService.update(eq("w-1"), any()))
+                .thenReturn(Maybe.error(new IllegalArgumentException("Datos obligatorios")));
+
+        webTestClient.put()
+                .uri("/wallets/w-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"cellphone\":\"999888777\"}")
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
+    @DisplayName("DELETE /wallets/{id}: Retorna 204 si se elimina")
+    void deleteWallet_shouldReturnNoContent() {
+        when(walletService.delete("w-1")).thenReturn(Single.just(true));
+
+        webTestClient.delete()
+                .uri("/wallets/w-1")
+                .exchange()
+                .expectStatus().isNoContent();
+    }
+
+    @Test
+    @DisplayName("DELETE /wallets/{id}: Retorna 404 si no existe")
+    void deleteWallet_whenMissing_shouldReturnNotFound() {
+        when(walletService.delete("nope")).thenReturn(Single.just(false));
+
+        webTestClient.delete()
+                .uri("/wallets/nope")
+                .exchange()
+                .expectStatus().isNotFound();
+    }
+
+    @Test
     @DisplayName("GET /wallets/{id}: Retorna 200 con el monedero")
     void findWalletById_shouldReturnWallet() {
         WalletResponse response = new WalletResponse();

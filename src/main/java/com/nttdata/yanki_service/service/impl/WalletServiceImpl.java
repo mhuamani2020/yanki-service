@@ -102,6 +102,57 @@ public class WalletServiceImpl implements WalletService {
     }
 
     @Override
+    public Maybe<WalletResponse> update(String id, WalletRequest request) {
+        if (request == null || isBlank(request.getDocumentNumber()) || isBlank(request.getCellphone())
+                || isBlank(request.getImei()) || isBlank(request.getEmail())) {
+            return Maybe.error(new IllegalArgumentException(
+                    "Documento, celular, IMEI y correo electrónico son obligatorios"));
+        }
+
+        return Maybe.fromPublisher(walletRepository.findById(id))
+                .flatMap(wallet -> isCellphoneTakenByAnotherWallet(wallet, request.getCellphone())
+                        .flatMap(taken -> {
+                            if (Boolean.TRUE.equals(taken)) {
+                                return Maybe.error(new IllegalArgumentException(
+                                        "Ya existe un monedero con ese número de celular"));
+                            }
+                            wallet.setDocumentNumber(request.getDocumentNumber());
+                            wallet.setCellphone(request.getCellphone());
+                            wallet.setImei(request.getImei());
+                            wallet.setEmail(request.getEmail());
+                            log.info("Updating wallet {}", wallet.getId());
+                            return Maybe.fromPublisher(walletRepository.save(wallet));
+                        }))
+                .map(WalletMapper::toResponse);
+    }
+
+    @Override
+    public Single<Boolean> delete(String id) {
+        return Single.fromPublisher(walletRepository.existsById(id))
+                .flatMap(exists -> {
+                    if (Boolean.FALSE.equals(exists)) {
+                        return Single.just(false);
+                    }
+                    log.info("Deleting wallet {}", id);
+                    return Single.fromPublisher(walletRepository.deleteById(id).thenReturn(true));
+                });
+    }
+
+    /**
+     * Comprueba si el nuevo celular pertenece a un monedero distinto del que se actualiza.
+     *
+     * @param wallet       monedero que se está actualizando
+     * @param newCellphone nuevo número de celular
+     * @return maybe con {@code true} si otro monedero ya usa ese celular
+     */
+    private Maybe<Boolean> isCellphoneTakenByAnotherWallet(Wallet wallet, String newCellphone) {
+        if (newCellphone.equals(wallet.getCellphone())) {
+            return Maybe.just(false);
+        }
+        return Maybe.fromPublisher(walletRepository.existsByCellphone(newCellphone));
+    }
+
+    @Override
     public Maybe<WalletResponse> associateDebitCard(String id, AssociateDebitCardRequest request) {
         if (request == null || isBlank(request.getDebitCardId())) {
             return Maybe.error(new IllegalArgumentException("La tarjeta de débito es obligatoria"));

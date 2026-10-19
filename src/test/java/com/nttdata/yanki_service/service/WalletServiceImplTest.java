@@ -160,6 +160,100 @@ class WalletServiceImplTest {
         verify(walletRepository, never()).save(any(Wallet.class));
     }
 
+    // --- ACTUALIZACIÓN Y BORRADO (CRUD) ---
+
+    @Test
+    @DisplayName("update: actualiza los datos maestros sin alterar saldo ni tarjeta")
+    void update_shouldModifyMasterData() {
+        sampleWallet.setDebitCardId("card-01");
+        when(walletRepository.findById("w-1")).thenReturn(Mono.just(sampleWallet));
+
+        WalletRequest request = new WalletRequest();
+        request.setDocumentNumber("87654321");
+        request.setCellphone("999888777");
+        request.setImei("IMEI-2");
+        request.setEmail("new@mail.com");
+
+        walletService.update("w-1", request).test()
+                .assertValue(response -> "87654321".equals(response.getDocumentNumber())
+                        && "IMEI-2".equals(response.getImei())
+                        && "new@mail.com".equals(response.getEmail())
+                        && response.getBalance() == 100.0
+                        && "card-01".equals(response.getDebitCardId()))
+                .assertComplete();
+
+        verify(walletRepository).save(sampleWallet);
+    }
+
+    @Test
+    @DisplayName("update: falla si el nuevo celular ya lo usa otro monedero")
+    void update_whenCellphoneTaken_shouldError() {
+        when(walletRepository.findById("w-1")).thenReturn(Mono.just(sampleWallet));
+        when(walletRepository.existsByCellphone("999111222")).thenReturn(Mono.just(true));
+
+        WalletRequest request = new WalletRequest();
+        request.setDocumentNumber("12345678");
+        request.setCellphone("999111222");
+        request.setImei("IMEI-1");
+        request.setEmail("user@mail.com");
+
+        walletService.update("w-1", request).test()
+                .assertError(IllegalArgumentException.class);
+        verify(walletRepository, never()).save(any(Wallet.class));
+    }
+
+    @Test
+    @DisplayName("update: no emite valor si el monedero no existe")
+    void update_whenWalletMissing_shouldCompleteEmpty() {
+        when(walletRepository.findById("w-9")).thenReturn(Mono.empty());
+
+        WalletRequest request = new WalletRequest();
+        request.setDocumentNumber("12345678");
+        request.setCellphone("999888777");
+        request.setImei("IMEI-1");
+        request.setEmail("user@mail.com");
+
+        walletService.update("w-9", request).test()
+                .assertNoValues()
+                .assertComplete();
+    }
+
+    @Test
+    @DisplayName("update: falla si faltan datos obligatorios")
+    void update_whenInvalidRequest_shouldError() {
+        WalletRequest request = new WalletRequest();
+        request.setCellphone("999888777");
+
+        walletService.update("w-1", request).test()
+                .assertError(IllegalArgumentException.class);
+        verify(walletRepository, never()).save(any(Wallet.class));
+    }
+
+    @Test
+    @DisplayName("delete: elimina el monedero y devuelve true")
+    void delete_whenWalletExists_shouldReturnTrue() {
+        when(walletRepository.existsById("w-1")).thenReturn(Mono.just(true));
+        when(walletRepository.deleteById("w-1")).thenReturn(Mono.empty());
+
+        walletService.delete("w-1").test()
+                .assertValue(true)
+                .assertComplete();
+
+        verify(walletRepository).deleteById("w-1");
+    }
+
+    @Test
+    @DisplayName("delete: devuelve false si el monedero no existe")
+    void delete_whenWalletMissing_shouldReturnFalse() {
+        when(walletRepository.existsById("w-9")).thenReturn(Mono.just(false));
+
+        walletService.delete("w-9").test()
+                .assertValue(false)
+                .assertComplete();
+
+        verify(walletRepository, never()).deleteById("w-9");
+    }
+
     // --- TARJETA DE DÉBITO ---
 
     @Test

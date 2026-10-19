@@ -70,6 +70,40 @@ public class WalletController implements WalletsApi {
     }
 
     /**
+     * {@code PUT /wallets/{id}} — actualiza los datos maestros de un monedero.
+     *
+     * @param id            identificador del monedero
+     * @param walletRequest nuevos datos del monedero
+     * @param exchange      contexto de la petición
+     * @return respuesta 200 con el monedero actualizado, o 404 si no existe
+     */
+    @Override
+    public Mono<ResponseEntity<WalletResponse>> updateWallet(String id, Mono<WalletRequest> walletRequest,
+                                                             ServerWebExchange exchange) {
+        log.info("Updating wallet: {}", id);
+        return walletRequest
+                .flatMap(request -> Mono.from(walletService.update(id, request).toFlowable()))
+                .map(ResponseEntity::ok)
+                .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * {@code DELETE /wallets/{id}} — elimina un monedero.
+     *
+     * @param id       identificador del monedero
+     * @param exchange contexto de la petición
+     * @return respuesta 204 si se eliminó, o 404 si no existe
+     */
+    @Override
+    public Mono<ResponseEntity<Void>> deleteWallet(String id, ServerWebExchange exchange) {
+        log.info("Deleting wallet: {}", id);
+        return Mono.from(walletService.delete(id).toFlowable())
+                .flatMap(deleted -> Boolean.TRUE.equals(deleted)
+                        ? Mono.just(ResponseEntity.<Void>noContent().build())
+                        : Mono.just(ResponseEntity.<Void>notFound().build()));
+    }
+
+    /**
      * {@code GET /wallets/{id}} — consulta un monedero por su id.
      *
      * @param id       identificador del monedero
